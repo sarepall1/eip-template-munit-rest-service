@@ -1,0 +1,99 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:dw="http://www.mulesoft.org/schema/mule/ee/dw" xmlns:mulexml="http://www.mulesoft.org/schema/mule/xml" xmlns:context="http://www.springframework.org/schema/context" xmlns:tls="http://www.mulesoft.org/schema/mule/tls" xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns:tracking="http://www.mulesoft.org/schema/mule/ee/tracking" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+    xmlns:spring="http://www.springframework.org/schema/beans"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xmlns:mule-ss="http://www.mulesoft.org/schema/mule/spring-security"
+    xmlns:ss="http://www.springframework.org/schema/security"
+    xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-current.xsd
+http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/ee/tracking http://www.mulesoft.org/schema/mule/ee/tracking/current/mule-tracking-ee.xsd
+http://www.mulesoft.org/schema/mule/spring-security http://www.mulesoft.org/schema/mule/spring-security/3.1/mule-spring-security.xsd
+http://www.springframework.org/schema/security http://www.springframework.org/schema/security/spring-security-3.0.xsd
+http://www.mulesoft.org/schema/mule/tls http://www.mulesoft.org/schema/mule/tls/current/mule-tls.xsd
+http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-3.0.xsd
+http://www.mulesoft.org/schema/mule/https http://www.mulesoft.org/schema/mule/https/current/mule-https.xsd
+http://www.springframework.org/schema/context http://www.springframework.org/schema/context/spring-context-current.xsd
+http://www.mulesoft.org/schema/mule/ee/dw http://www.mulesoft.org/schema/mule/ee/dw/current/dw.xsd
+http://www.mulesoft.org/schema/mule/xml http://www.mulesoft.org/schema/mule/xml/current/mule-xml.xsd">
+
+    <spring:beans>      
+        <ss:authentication-manager alias="authenticationManager">
+          <ss:authentication-provider>
+            <ss:user-service id="userService">
+              <ss:user name="ross" password="ross" authorities="ROLE_ADMIN" />
+              <ss:user name="user" password="password" authorities="ROLE_ADMIN" />
+              <ss:user name="anon" password="anon" authorities="ROLE_ANON" />
+            </ss:user-service>
+          </ss:authentication-provider>
+        </ss:authentication-manager>
+    </spring:beans>
+
+    <mule-ss:security-manager doc:name="Spring Security Provider" name="sm">
+      <mule-ss:delegate-security-provider name="memory-provider" delegate-ref="authenticationManager" />
+    </mule-ss:security-manager>
+
+    <http:listener-config name="HTTP_Listener_Configuration" host="localhost" port="9091" doc:name="HTTP Listener Configuration"/>
+   
+    <http:listener-config name="HTTP_Listener_Employee_Service" host="0.0.0.0" port="${emp.service.http.port}" doc:name="HTTP Listener Configuration"/>
+    <http:listener-config name="HTTP_Listener_TEST" host="0.0.0.0" port="${consumer.http.port}" doc:name="HTTP Listener Configuration"/>
+    <http:request-config name="HTTP_Request_Configuration_REST" host="${http.requestor.host}" port="${http.requestor.port}" doc:name="HTTP Request Configuration"/>
+    <context:property-placeholder location="rest.properties"/>
+    
+    <flow name="eip-munit-postEmployeeData">
+        <http:listener config-ref="HTTP_Listener_Employee_Service" path="/${emp.service.http.post.url}" allowedMethods="POST" doc:name="HTTP"/>
+        
+        <logger message="POST Request Initiated" level="INFO" doc:name="Logger"/>
+        <byte-array-to-object-transformer mimeType="application/json" doc:name="Byte Array to Object"/>
+        <dw:transform-message doc:name="Transform Message">
+            <dw:set-payload><![CDATA[%dw 1.0
+%output application/xml
+---
+
+Organization: {
+	(payload.result map {
+		Employee: {
+		ORG:$.org,
+		LOCATION: $.location,
+		NAME:$.name,
+		WWID:$.wwid
+		}
+	})
+}]]></dw:set-payload>
+        </dw:transform-message>
+        <mulexml:dom-to-xml-transformer mimeType="application/xml" outputEncoding="UTF-8" doc:name="DOM to XML"/>
+    </flow>
+    
+    <flow name="eip-munit-getEmployeeData">
+        <http:listener config-ref="HTTP_Listener_Employee_Service" path="/${emp.service.http.get.url}" allowedMethods="GET" doc:name="HTTP"/>
+        <logger message="GET Request Initiated" level="INFO" doc:name="Logger"/>
+        <set-payload value="#['[{&quot;org&quot;:&quot;intel&quot;,&quot;location&quot;:&quot;US&quot;,&quot;name&quot;:&quot;utsav&quot;,&quot;wwid&quot;:&quot;11631922&quot;},{&quot;org&quot;:&quot;XYZ&quot;,&quot;location&quot;:&quot;AUS&quot;,&quot;name&quot;:&quot;aviral&quot;,&quot;wwid&quot;:&quot;11544539&quot;}]']" mimeType="application/json" doc:name="Set Payload"/>
+    </flow>
+    
+    <flow name="eip-munit-consumeEmployeeData">
+        <http:listener config-ref="HTTP_Listener_TEST" path="/${consumer.http.get.basepath}" allowedMethods="GET" doc:name="HTTP"/>
+        <http:request config-ref="HTTP_Request_Configuration_REST" path="/${http.requestor.get.basepath}" method="GET" doc:name="HTTP_Requestor"/>
+        <byte-array-to-string-transformer doc:name="Byte Array to String"/>
+        <logger message="#[payload]" level="INFO" doc:name="Logger"/>
+    </flow>
+    
+    <flow name="eip-munit-query-param-service-basic-authentication">
+        <http:listener config-ref="HTTP_Listener_TEST" path="/${basic.auth.service.basepath}" allowedMethods="GET" doc:name="HTTP"> 
+        </http:listener>
+        <http:basic-security-filter realm="mule-realm"/>
+        <logger message="HTTP Query Param Received : #[message.inboundProperties.'http.query.params'.orgname] and Authorization : #[message.inboundProperties.'Authorization']" level="INFO" doc:name="Logger"/>
+        <set-variable variableName="orgName" value="#[message.inboundProperties.'http.query.params'.orgname]" doc:name="Org Name"/>
+        <choice doc:name="Choice">
+            <when expression="#[flowVars.orgName == 'intel']">
+                <set-payload value="#[flowVars.orgName]" doc:name="Set Payload"/>
+                <logger message="Welcome to Intel !" level="INFO" doc:name="Logger"/>
+            </when>
+            <otherwise>
+                <set-payload value="#['External Organization']" doc:name="Set Payload"/>
+                <logger message="You belongs to some other ORG" level="INFO" doc:name="Logger"/>
+            </otherwise>
+        </choice>
+    </flow>
+  
+</mule>

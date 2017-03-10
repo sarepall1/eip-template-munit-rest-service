@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:context="http://www.springframework.org/schema/context" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:munit="http://www.mulesoft.org/schema/mule/munit" xmlns:spring="http://www.springframework.org/schema/beans" xmlns:core="http://www.mulesoft.org/schema/mule/core" xmlns:mock="http://www.mulesoft.org/schema/mule/mock" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/munit http://www.mulesoft.org/schema/mule/munit/current/mule-munit.xsd
+http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-current.xsd
+http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/mock http://www.mulesoft.org/schema/mule/mock/current/mule-mock.xsd
+http://www.springframework.org/schema/context http://www.springframework.org/schema/context/spring-context-current.xsd">
+    <munit:config name="munit" doc:name="MUnit configuration"/>
+    <spring:beans>
+        <spring:import resource="classpath:munit-rest-service-template.xml"/>
+    </spring:beans>
+
+    <munit:test name="eip-munit-test-getEmployeeData" description="This Scenario is to test the GET HTTP Service ">
+        <mock:when messageProcessor=".*:.*" doc:name="Mock">
+            <mock:with-attributes>
+                <mock:with-attribute name="doc:name" whereValue="#['HTTP_Requestor']"/>
+            </mock:with-attributes>
+            <mock:then-return payload="#[getResource('restdata.json').asString()]" mimeType="application/json"/>
+
+        </mock:when>
+        <flow-ref name="eip-munit-consumeEmployeeData" doc:name="eip-munit-consumeEmployeeData"/>
+        <munit:assert-on-equals message="Assertion fail due to JSON data mismatch" expectedValue="#[getResource('restdata.json').asString()]" actualValue="#[payload]" doc:name="Assert Equals"/>
+        <mock:verify-call messageProcessor=".*:.*" times="1" doc:name="Verify Call">
+            <mock:with-attributes>
+                <mock:with-attribute name="doc:name" whereValue="#['HTTP_Requestor']"/>
+            </mock:with-attributes>
+
+        </mock:verify-call>
+        <logger message="#['\n'] [MUnit] " level="INFO" doc:name="Logger"/>
+    </munit:test>
+    <munit:test name="eip-munit-test-postEmployeeData" description="This scenario is test POST scenario with HTTP">
+        <munit:set payload="#[getResource('rest-post-request.json').asByteArray()]" mimeType="application/json" doc:name="Set JSON data "/>
+        <flow-ref name="eip-munit-postEmployeeData" doc:name="eip-munit-postEmployeeData"/>
+        <munit:assert-not-null message="Payload Is Null" doc:name="Assert Not Null Payload"/>
+        <set-variable variableName="expectedValue" value="${test.xml.expected.value}" doc:name="expectedValue"/>
+        <munit:assert-true message="Assertion failed due to data mismatch" condition="#[payload.contains(flowVars.expectedValue)]" doc:name="Assert True"/>
+    </munit:test>
+    <munit:test name="eip-munit-test-consumeRESTService" description="Test">
+        <flow-ref name="eip-munit-getEmployeeData" doc:name="eip-munit-getEmployeeData"/>
+        <munit:assert-not-null message="Payload is Not Null" doc:name="Assert Not Null Payload"/>
+        <mock:verify-call messageProcessor=".*:.*" times="1" doc:name="Verify Call">
+            <mock:with-attributes>
+                <mock:with-attribute name="doc:name" whereValue="#['eip-munit-getEmployeeData']"/>
+            </mock:with-attributes>
+
+        </mock:verify-call>
+    </munit:test>
+    <munit:test name="eip-munit-test-basic-auth-with-query-param" description="Test">
+        <set-property propertyName="auth" value="${test.basic.auth}" doc:name="Authorization"/>
+
+        <logger message="Authorization : #[message.outboundProperties.'auth'] and Query Param ORG : #[message.outboundProperties.'org']" level="INFO" doc:name="Logger"/>
+
+        <munit:set payload="#[]" doc:name="Set Authorization Header and Query Param">
+            <munit:inbound-properties>
+                <munit:inbound-property key="Authorization" value="#[message.outboundProperties.'auth']"/>
+                <munit:inbound-property key="http.query.params" value="#[['orgname':'intel']]"/>
+            </munit:inbound-properties>
+
+
+        </munit:set>
+        <flow-ref name="eip-munit-query-param-service-basic-authentication" doc:name="eip-munit-query-param-service-basic-authentication"/>
+        <munit:assert-on-equals message="Assertion fail due to data mismatch" expectedValue="${test.expected.value}" actualValue="#[payload]" doc:name="Assert Equals"/>
+    </munit:test>
+</mule>
