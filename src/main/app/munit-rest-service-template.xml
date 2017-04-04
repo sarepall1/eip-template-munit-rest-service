@@ -17,8 +17,8 @@ http://www.mulesoft.org/schema/mule/https http://www.mulesoft.org/schema/mule/ht
 http://www.springframework.org/schema/context http://www.springframework.org/schema/context/spring-context-current.xsd
 http://www.mulesoft.org/schema/mule/ee/dw http://www.mulesoft.org/schema/mule/ee/dw/current/dw.xsd
 http://www.mulesoft.org/schema/mule/xml http://www.mulesoft.org/schema/mule/xml/current/mule-xml.xsd">
-
-    <spring:beans>      
+ 
+   <!--  <spring:beans>      
         <ss:authentication-manager alias="authenticationManager">
           <ss:authentication-provider>
             <ss:user-service id="userService">
@@ -28,25 +28,25 @@ http://www.mulesoft.org/schema/mule/xml http://www.mulesoft.org/schema/mule/xml/
             </ss:user-service>
           </ss:authentication-provider>
         </ss:authentication-manager>
-    </spring:beans>
+    </spring:beans> 
 
     <mule-ss:security-manager doc:name="Spring Security Provider" name="sm">
-      <mule-ss:delegate-security-provider name="memory-provider" delegate-ref="authenticationManager" />
-    </mule-ss:security-manager>
+      <mule-ss:delegate-security-provider name="memory-provider" delegate-ref="authenticationManager" /> 
+    </mule-ss:security-manager>  --> 
 
     <http:listener-config name="HTTP_Listener_Configuration" host="localhost" port="9091" doc:name="HTTP Listener Configuration"/>
    
     <http:listener-config name="HTTP_Listener_Employee_Service" host="0.0.0.0" port="${emp.service.http.port}" doc:name="HTTP Listener Configuration"/>
     <http:listener-config name="HTTP_Listener_TEST" host="0.0.0.0" port="${consumer.http.port}" doc:name="HTTP Listener Configuration"/>
     <http:request-config name="HTTP_Request_Configuration_REST" host="${http.requestor.host}" port="${http.requestor.port}" doc:name="HTTP Request Configuration"/>
-    <context:property-placeholder location="rest.properties"/>
-    
+   <!--  <context:property-placeholder location="rest.properties"/> -->
+    <context:property-placeholder location="${MULE_SECURE_PROPERTIES}/munit/munit-rest-service-template.properties" ignore-resource-not-found="true" order="1"/>
     <flow name="eip-munit-postEmployeeData">
         <http:listener config-ref="HTTP_Listener_Employee_Service" path="/${emp.service.http.post.url}" allowedMethods="POST" doc:name="HTTP"/>
         
         <logger message="POST Request Initiated" level="INFO" doc:name="Logger"/>
         <byte-array-to-object-transformer mimeType="application/json" doc:name="Byte Array to Object"/>
-        <dw:transform-message doc:name="Transform Message">
+         <dw:transform-message doc:name="Transform Message">
             <dw:set-payload><![CDATA[%dw 1.0
 %output application/xml
 ---
@@ -61,7 +61,7 @@ Organization: {
 		}
 	})
 }]]></dw:set-payload>
-        </dw:transform-message>
+        </dw:transform-message> 
         <mulexml:dom-to-xml-transformer mimeType="application/xml" outputEncoding="UTF-8" doc:name="DOM to XML"/>
     </flow>
     
@@ -81,7 +81,7 @@ Organization: {
     <flow name="eip-munit-query-param-service-basic-authentication">
         <http:listener config-ref="HTTP_Listener_TEST" path="/${basic.auth.service.basepath}" allowedMethods="GET" doc:name="HTTP"> 
         </http:listener>
-        <http:basic-security-filter realm="mule-realm"/>
+        <!-- <http:basic-security-filter realm="mule-realm"/> -->
         <logger message="HTTP Query Param Received : #[message.inboundProperties.'http.query.params'.orgname] and Authorization : #[message.inboundProperties.'Authorization']" level="INFO" doc:name="Logger"/>
         <set-variable variableName="orgName" value="#[message.inboundProperties.'http.query.params'.orgname]" doc:name="Org Name"/>
         <choice doc:name="Choice">

@@ -9,13 +9,15 @@ http://www.springframework.org/schema/context http://www.springframework.org/sch
     <spring:beans>
         <spring:import resource="classpath:munit-rest-service-template.xml"/>
     </spring:beans>
+    <context:property-placeholder location="${MULE_SECURE_PROPERTIES}/munit/munit-rest-service-template.properties" ignore-resource-not-found="true" order="1"/>
 
-    <munit:test name="eip-munit-test-getEmployeeData" description="This Scenario is to test the GET HTTP Service ">
+    <munit:test name="eip-munit-test-getEmployeeData_mock" description="This Scenario is to test the GET HTTP Service ">
         <mock:when messageProcessor=".*:.*" doc:name="Mock">
             <mock:with-attributes>
                 <mock:with-attribute name="doc:name" whereValue="#['HTTP_Requestor']"/>
             </mock:with-attributes>
-            <mock:then-return payload="#[getResource('restdata.json').asString()]" mimeType="application/json"/>
+            <mock:then-return payload="#[getResource('restdata.json').asString()]"/>
+
 
         </mock:when>
         <flow-ref name="eip-munit-consumeEmployeeData" doc:name="eip-munit-consumeEmployeeData"/>
@@ -25,9 +27,25 @@ http://www.springframework.org/schema/context http://www.springframework.org/sch
                 <mock:with-attribute name="doc:name" whereValue="#['HTTP_Requestor']"/>
             </mock:with-attributes>
 
+
         </mock:verify-call>
         <logger message="#['\n'] [MUnit] " level="INFO" doc:name="Logger"/>
     </munit:test>
+    
+    <munit:test name="eip-munit-test-getEmployeeData" description="This Scenario is to test the GET HTTP Service ">
+       
+        <flow-ref name="eip-munit-consumeEmployeeData" doc:name="eip-munit-consumeEmployeeData"/>
+        <munit:assert-on-equals message="Assertion fail due to JSON data mismatch" expectedValue="#[getResource('restdata.json').asString()]" actualValue="#[payload]" doc:name="Assert Equals"/>
+        <mock:verify-call messageProcessor=".*:.*" times="1" doc:name="Verify Call">
+            <mock:with-attributes>
+                <mock:with-attribute name="doc:name" whereValue="#['HTTP_Requestor']"/>
+            </mock:with-attributes>
+
+
+        </mock:verify-call>
+        <logger message="#['\n'] [MUnit] " level="INFO" doc:name="Logger"/>
+    </munit:test>
+    
     <munit:test name="eip-munit-test-postEmployeeData" description="This scenario is test POST scenario with HTTP">
         <munit:set payload="#[getResource('rest-post-request.json').asByteArray()]" mimeType="application/json" doc:name="Set JSON data "/>
         <flow-ref name="eip-munit-postEmployeeData" doc:name="eip-munit-postEmployeeData"/>
